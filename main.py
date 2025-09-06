@@ -1,8 +1,8 @@
 import json
 import requests
 
-ucl = "https://ocr.asprise.com/api/v1/receipt"
-image = ".png"
+url = "https://ocr.asprise.com/api/v1/receipt"
+image = "Recipt1.jpg"
 
 res = requests.post(url,
                     data = {
