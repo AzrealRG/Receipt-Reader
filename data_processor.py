@@ -1,0 +1,224 @@
+import pandas as pd
+import json
+from datetime import datetime
+import os
+
+class ReceiptDataProcessor:
+    """
+    A class to process receipt data from OCR JSON files and export to Excel/CSV formats.
+    """
+    
+    def __init__(self, json_file_path):
+        """
+        Initialize the processor with a JSON file path.
+        
+        Args:
+            json_file_path (str): Path to the JSON file containing receipt data
+        """
+        self.json_file_path = json_file_path
+        self.data = None
+        self.receipts = []
+        
+    def load_data(self):
+        """Load and parse the JSON data from the file."""
+        try:
+            with open(self.json_file_path, 'r') as f:
+                self.data = json.load(f)
+            
+            if 'receipts' in self.data:
+                self.receipts = self.data['receipts']
+            else:
+                print("No receipts found in the JSON data")
+                return False
+            return True
+        except FileNotFoundError:
+            print(f"File {self.json_file_path} not found")
+            return False
+        except json.JSONDecodeError:
+            print(f"Invalid JSON in {self.json_file_path}")
+            return False
+    
+    def extract_merchant_info(self):
+        """Extract merchant information from receipts."""
+        merchant_data = []
+        
+        for receipt in self.receipts:
+            merchant_info = {
+                'merchant_name': receipt.get('merchant_name', ''),
+                'merchant_address': receipt.get('merchant_address', ''),
+                'merchant_phone': receipt.get('merchant_phone', ''),
+                'merchant_website': receipt.get('merchant_website', ''),
+                'city': receipt.get('city', ''),
+                'state': receipt.get('state', ''),
+                'zip': receipt.get('zip', ''),
+                'country': receipt.get('country', ''),
+                'receipt_no': receipt.get('receipt_no', ''),
+                'date': receipt.get('date', ''),
+                'time': receipt.get('time', ''),
+                'total': receipt.get('total', 0),
+                'currency': receipt.get('currency', ''),
+                'payment_method': receipt.get('payment_method', ''),
+                'ocr_confidence': receipt.get('ocr_confidence', 0)
+            }
+            merchant_data.append(merchant_info)
+        
+        return pd.DataFrame(merchant_data)
+    
+    def extract_items(self):
+        """Extract individual items from receipts."""
+        items_data = []
+        
+        for receipt in self.receipts:
+            merchant_name = receipt.get('merchant_name', '')
+            receipt_date = receipt.get('date', '')
+            receipt_time = receipt.get('time', '')
+            
+            for item in receipt.get('items', []):
+                item_info = {
+                    'merchant_name': merchant_name,
+                    'receipt_date': receipt_date,
+                    'receipt_time': receipt_time,
+                    'description': item.get('description', ''),
+                    'amount': item.get('amount', 0),
+                    'quantity': item.get('qty', ''),
+                    'unit_price': item.get('unitPrice', ''),
+                    'category': item.get('category', ''),
+                    'flags': item.get('flags', ''),
+                    'remarks': item.get('remarks', ''),
+                    'tags': item.get('tags', '')
+                }
+                items_data.append(item_info)
+        
+        return pd.DataFrame(items_data)
+    
+    def create_summary_stats(self):
+        """Create summary statistics from the receipt data."""
+        if not self.receipts:
+            return pd.DataFrame()
+        
+        total_receipts = len(self.receipts)
+        total_amount = sum(receipt.get('total', 0) for receipt in self.receipts)
+        avg_amount = total_amount / total_receipts if total_receipts > 0 else 0
+        
+        # Count items
+        total_items = sum(len(receipt.get('items', [])) for receipt in self.receipts)
+        
+        # Get date range
+        dates = [receipt.get('date', '') for receipt in self.receipts if receipt.get('date')]
+        min_date = min(dates) if dates else ''
+        max_date = max(dates) if dates else ''
+        
+        # Get unique merchants
+        merchants = set(receipt.get('merchant_name', '') for receipt in self.receipts)
+        unique_merchants = len(merchants)
+        
+        summary_data = {
+            'Metric': [
+                'Total Receipts',
+                'Total Amount',
+                'Average Amount per Receipt',
+                'Total Items',
+                'Unique Merchants',
+                'Date Range (From)',
+                'Date Range (To)',
+                'Processing Date'
+            ],
+            'Value': [
+                total_receipts,
+                f"${total_amount:.2f}",
+                f"${avg_amount:.2f}",
+                total_items,
+                unique_merchants,
+                min_date,
+                max_date,
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ]
+        }
+        
+        return pd.DataFrame(summary_data)
+    
+    def export_to_excel(self, output_file='receipt_analysis.xlsx'):
+        """Export all data to an Excel file with multiple sheets."""
+        if not self.load_data():
+            return False
+        
+        try:
+            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+                # Summary statistics
+                summary_df = self.create_summary_stats()
+                summary_df.to_excel(writer, sheet_name='Summary', index=False)
+                
+                # Merchant information
+                merchant_df = self.extract_merchant_info()
+                merchant_df.to_excel(writer, sheet_name='Merchants', index=False)
+                
+                # Individual items
+                items_df = self.extract_items()
+                items_df.to_excel(writer, sheet_name='Items', index=False)
+                
+                # Raw OCR text (if available)
+                ocr_texts = []
+                for receipt in self.receipts:
+                    ocr_texts.append({
+                        'merchant_name': receipt.get('merchant_name', ''),
+                        'receipt_date': receipt.get('date', ''),
+                        'ocr_text': receipt.get('ocr_text', ''),
+                        'confidence': receipt.get('ocr_confidence', 0)
+                    })
+                
+                if ocr_texts:
+                    ocr_df = pd.DataFrame(ocr_texts)
+                    ocr_df.to_excel(writer, sheet_name='OCR_Text', index=False)
+            
+            print(f"Excel file exported successfully: {output_file}")
+            return True
+            
+        except Exception as e:
+            print(f"Error exporting to Excel: {e}")
+            return False
+    
+    def export_to_csv(self, output_dir='csv_exports'):
+        """Export data to separate CSV files."""
+        if not self.load_data():
+            return False
+        
+        try:
+            # Create output directory if it doesn't exist
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Export summary
+            summary_df = self.create_summary_stats()
+            summary_df.to_csv(f'{output_dir}/summary.csv', index=False)
+            
+            # Export merchant information
+            merchant_df = self.extract_merchant_info()
+            merchant_df.to_csv(f'{output_dir}/merchants.csv', index=False)
+            
+            # Export items
+            items_df = self.extract_items()
+            items_df.to_csv(f'{output_dir}/items.csv', index=False)
+            
+            print(f"CSV files exported successfully to {output_dir}/")
+            return True
+            
+        except Exception as e:
+            print(f"Error exporting to CSV: {e}")
+            return False
+
+def main():
+    """Example usage of the ReceiptDataProcessor."""
+    # Initialize processor with the JSON file
+    processor = ReceiptDataProcessor('result1.json')
+    
+    # Export to Excel
+    print("Exporting to Excel...")
+    processor.export_to_excel('receipt_analysis.xlsx')
+    
+    # Export to CSV
+    print("Exporting to CSV...")
+    processor.export_to_csv('csv_exports')
+    
+    print("Data processing complete!")
+
+if __name__ == "__main__":
+    main()
