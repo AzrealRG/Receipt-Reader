@@ -2,7 +2,7 @@ import json
 import requests
 import os
 
-folder_path = "/Users/johnha/ReciptReader/recipts"
+folder_path = "/ReciptReader/Receipts"
 for filename in os.listdir("recipts"):
     if filename.lower().endswith(".jpg", ".jpeg", ".png"):
         file_path = os.path.join(folder_path, filename)

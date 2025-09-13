@@ -4,23 +4,14 @@ from datetime import datetime
 import os
 
 class ReceiptDataProcessor:
-    """
-    A class to process receipt data from OCR JSON files and export to Excel/CSV formats.
-    """
     
     def __init__(self, json_file_path):
-        """
-        Initialize the processor with a JSON file path.
         
-        Args:
-            json_file_path (str): Path to the JSON file containing receipt data
-        """
         self.json_file_path = json_file_path
         self.data = None
         self.receipts = []
         
     def load_data(self):
-        """Load and parse the JSON data from the file."""
         try:
             with open(self.json_file_path, 'r') as f:
                 self.data = json.load(f)
