@@ -30,7 +30,6 @@ class ReceiptDataProcessor:
             return False
     
     def extract_merchant_info(self):
-        """Extract merchant information from receipts."""
         merchant_data = []
         
         for receipt in self.receipts:
@@ -56,7 +55,6 @@ class ReceiptDataProcessor:
         return pd.DataFrame(merchant_data)
     
     def extract_items(self):
-        """Extract individual items from receipts."""
         items_data = []
         
         for receipt in self.receipts:
@@ -83,7 +81,6 @@ class ReceiptDataProcessor:
         return pd.DataFrame(items_data)
     
     def create_summary_stats(self):
-        """Create summary statistics from the receipt data."""
         if not self.receipts:
             return pd.DataFrame()
         
@@ -91,15 +88,12 @@ class ReceiptDataProcessor:
         total_amount = sum(receipt.get('total', 0) for receipt in self.receipts)
         avg_amount = total_amount / total_receipts if total_receipts > 0 else 0
         
-        # Count items
         total_items = sum(len(receipt.get('items', [])) for receipt in self.receipts)
         
-        # Get date range
         dates = [receipt.get('date', '') for receipt in self.receipts if receipt.get('date')]
         min_date = min(dates) if dates else ''
         max_date = max(dates) if dates else ''
         
-        # Get unique merchants
         merchants = set(receipt.get('merchant_name', '') for receipt in self.receipts)
         unique_merchants = len(merchants)
         
@@ -129,25 +123,20 @@ class ReceiptDataProcessor:
         return pd.DataFrame(summary_data)
     
     def export_to_excel(self, output_file='receipt_analysis.xlsx'):
-        """Export all data to an Excel file with multiple sheets."""
         if not self.load_data():
             return False
         
         try:
             with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                # Summary statistics
                 summary_df = self.create_summary_stats()
                 summary_df.to_excel(writer, sheet_name='Summary', index=False)
                 
-                # Merchant information
                 merchant_df = self.extract_merchant_info()
                 merchant_df.to_excel(writer, sheet_name='Merchants', index=False)
                 
-                # Individual items
                 items_df = self.extract_items()
                 items_df.to_excel(writer, sheet_name='Items', index=False)
                 
-                # Raw OCR text (if available)
                 ocr_texts = []
                 for receipt in self.receipts:
                     ocr_texts.append({
@@ -169,23 +158,18 @@ class ReceiptDataProcessor:
             return False
     
     def export_to_csv(self, output_dir='csv_exports'):
-        """Export data to separate CSV files."""
         if not self.load_data():
             return False
         
         try:
-            # Create output directory if it doesn't exist
             os.makedirs(output_dir, exist_ok=True)
             
-            # Export summary
             summary_df = self.create_summary_stats()
             summary_df.to_csv(f'{output_dir}/summary.csv', index=False)
             
-            # Export merchant information
             merchant_df = self.extract_merchant_info()
             merchant_df.to_csv(f'{output_dir}/merchants.csv', index=False)
             
-            # Export items
             items_df = self.extract_items()
             items_df.to_csv(f'{output_dir}/items.csv', index=False)
             
@@ -197,15 +181,11 @@ class ReceiptDataProcessor:
             return False
 
 def main():
-    """Example usage of the ReceiptDataProcessor."""
-    # Initialize processor with the JSON file
     processor = ReceiptDataProcessor('result1.json')
     
-    # Export to Excel
     print("Exporting to Excel...")
     processor.export_to_excel('receipt_analysis.xlsx')
     
-    # Export to CSV
     print("Exporting to CSV...")
     processor.export_to_csv('csv_exports')
     
